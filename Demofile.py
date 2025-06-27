@@ -1,5 +1,6 @@
 import os
 import time
+import re
 from datetime import datetime
 
 def get_recent_csv_files(folder_path, minutes=15):
@@ -19,25 +20,51 @@ def get_recent_csv_files(folder_path, minutes=15):
                     recent_files.append(full_path)
     return recent_files
 
+def extract_date_from_filename(fname):
+    """
+    Extracts date from filename in formats like 25Jun2025 or 250625.
+    Returns string in ddmmyyyy format or today's date if not found.
+    """
+    # Match date in format 25Jun2025
+    match = re.search(r'(\d{2}[A-Za-z]{3}\d{4})', fname)
+    if match:
+        try:
+            dt = datetime.strptime(match.group(1), '%d%b%Y')
+            return dt.strftime('%d%m%Y')
+        except ValueError:
+            pass
+
+    # Match fallback format like 250625 (ddmmyy)
+    match = re.search(r'(\d{2})(\d{2})(\d{2})', fname)
+    if match:
+        try:
+            dt = datetime.strptime(match.group(0), '%d%m%y')
+            return dt.strftime('%d%m%Y')
+        except ValueError:
+            pass
+
+    # Fallback to today's date
+    return datetime.now().strftime('%d%m%Y')
+
 def get_renamed_filename(original_filename):
     """
     Return new standardized filename based on the filename pattern.
     """
-    today_str = datetime.now().strftime("%d%m%Y")
     fname = original_filename.lower()
+    date_part = extract_date_from_filename(original_filename)
 
     if "bulk" in fname and "bse" in fname:
-        return f"bulk_BSE_{today_str}.csv"
+        return f"bulk_BSE_{date_part}.csv"
     elif "block" in fname and "bse" in fname:
-        return f"block_BSE_{today_str}.csv"
+        return f"block_BSE_{date_part}.csv"
     elif fname == "bulk.csv":
-        return f"bulk_NSE_{today_str}.csv"
+        return f"bulk_NSE_{date_part}.csv"
     elif fname == "block.csv":
-        return f"block_NSE_{today_str}.csv"
+        return f"block_NSE_{date_part}.csv"
     elif "pit" in fname and ("sebi" in fname or "bse" in fname):
-        return f"Insider_BSE_{today_str}.csv"
+        return f"Insider_BSE_{date_part}.csv"
     elif "pit" in fname and "nse" in fname:
-        return f"Insider_NSE_{today_str}.csv"
+        return f"Insider_NSE_{date_part}.csv"
     else:
         return None  # Unrecognized pattern
 
@@ -69,10 +96,3 @@ def rename_recent_files(folder_path, minutes=15):
             print(f"⚠ Skipped: {original_name} (unrecognized naming pattern)")
 
     return renamed_files
-
-
-
-from file_renamer import rename_recent_files
-
-download_folder = "/your/download/folder/path"
-renamed_files = rename_recent_files(download_folder, minutes=15)
