@@ -69,3 +69,10 @@ def rename_recent_files(folder_path, minutes=15):
             print(f"⚠ Skipped: {original_name} (unrecognized naming pattern)")
 
     return renamed_files
+
+
+
+from file_renamer import rename_recent_files
+
+download_folder = "/your/download/folder/path"
+renamed_files = rename_recent_files(download_folder, minutes=15)
