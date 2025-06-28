@@ -76,8 +76,13 @@ def rename_recent_files(folder_path, minutes=15):
 
     for full_path in recent_files:
         original_name = os.path.basename(full_path)
-        new_name = get_renamed_filename(original_name)
 
+        # ✅ Skip if already in final format like block_BSE_250625.csv
+        if re.match(r'^(bulk|block|Insider)_(BSE|NSE)_\d{8}\.csv$', original_name):
+            print(f"⏭ Skipped already renamed: {original_name}")
+            continue
+
+        new_name = get_renamed_filename(original_name)
         if new_name:
             new_path = os.path.join(folder_path, new_name)
             if not os.path.exists(new_path):
@@ -90,3 +95,4 @@ def rename_recent_files(folder_path, minutes=15):
             print(f"⚠ Skipped: {original_name} (unrecognized pattern)")
 
     return renamed_files
+
