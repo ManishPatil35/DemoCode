@@ -95,4 +95,75 @@ def rename_recent_files(folder_path, minutes=15):
             print(f"⚠ Skipped: {original_name} (unrecognized pattern)")
 
     return renamed_files
+    
+    #Upload to gcs code 
+    
+    import os
+import re
+import logging
+from google.cloud import storage
+from dotenv import load_dotenv
+from rename_files import rename_recent_files  # externalized your logic (explained below)
+
+# Load environment variables
+load_dotenv()
+
+# Environment config
+BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
+UPLOAD_DIR = os.getenv("GCS_UPLOAD_DIR", "")
+LOCAL_DIR = os.getenv("LOCAL_UPLOAD_DIR", "data/")
+CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+
+# Optional ADC override
+if CREDENTIALS_PATH:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = CREDENTIALS_PATH
+
+# Logging config
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s — %(levelname)s — %(message)s",
+    handlers=[
+        logging.FileHandler("upload.log"),
+        logging.StreamHandler()
+    ]
+)
+
+def is_valid_filename(fname):
+    return re.match(r"^(bulk|block|Insider)_(BSE|NSE)_\d{8}\.csv$", fname)
+
+def upload_files():
+    logging.info("🔄 Starting upload process...")
+    renamed_files = rename_recent_files(LOCAL_DIR, minutes=15)
+
+    if not renamed_files:
+        logging.warning("⚠ No new files renamed or found for upload.")
+        return
+
+    try:
+        client = storage.Client()
+        bucket = client.bucket(BUCKET_NAME)
+        logging.info(f"📡 Connected to GCS bucket: {BUCKET_NAME}")
+    except Exception as e:
+        logging.error(f"❌ Failed to connect to GCS: {e}")
+        return
+
+    for file_path in renamed_files:
+        fname = os.path.basename(file_path)
+        if not is_valid_filename(fname):
+            logging.warning(f"⏭ Skipping invalid format: {fname}")
+            continue
+
+        blob_path = os.path.join(UPLOAD_DIR, fname).replace("\\", "/")
+        blob = bucket.blob(blob_path)
+
+        try:
+            blob.upload_from_filename(file_path)
+            logging.info(f"✅ Uploaded {fname} to gs://{BUCKET_NAME}/{blob_path}")
+        except Exception as e:
+            logging.error(f"❌ Failed to upload {fname}: {e}")
+
+    logging.info("✅ Upload process complete.")
+
+if __name__ == "__main__":
+    upload_files()
 
